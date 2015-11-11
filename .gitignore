@@ -2,3 +2,5 @@ gosshproxy
 bindata
 builds
 main
+app
+libapps

@@ -100,7 +100,6 @@ func (p *SshConn) serve() error {
 					if err != nil {
 						break r
 					}
-					log.Println("Starting remote scp process: ", string(req.Payload))
 					if err := scp_session.Start(string(req.Payload) + "\n"); err != nil {
 						break r
 					}
@@ -136,7 +135,7 @@ func (p *SshConn) serve() error {
 		// go io.Copy(channel, wrappedChannel2)
 
 		go func() {
-			defer log.Printf("copy finish 0")
+			defer log.Printf("server read finish")
 			defer func() { exit <- true }()
 			buf := make([]byte, 128)
 			for {
@@ -148,11 +147,12 @@ func (p *SshConn) serve() error {
 				if ew != nil {
 					break
 				}
+				// log.Printf("get msg: %s", string(buf))
 			}
 		}()
 
 		go func() {
-			defer log.Printf("copy finish 1")
+			defer log.Printf("client read finish")
 			defer func() { exit <- true }()
 			buf := make([]byte, 128)
 			for {
@@ -166,6 +166,7 @@ func (p *SshConn) serve() error {
 				}
 				safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
 				p.cc.SendLogEvent(safeMessage, code_info.code, code_info.way)
+				// log.Printf("post msg: %s", string(buf))
 			}
 		}()
 

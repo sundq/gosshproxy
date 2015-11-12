@@ -6,8 +6,6 @@ import (
 	"./webtty"
 	"log"
 	"sync"
-
-	"fmt"
 )
 
 func main() {

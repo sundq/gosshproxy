@@ -25,7 +25,7 @@ func (p *SshConn) serve() error {
 		log.Println("failed to handshake")
 		return (err)
 	}
-
+	exit := make(chan bool, 2)
 	code_info, _ := p.tunnelFn(serverConn)
 	defer serverConn.Close()
 	defer p.cc.SendDisconnectEvent(code_info.code, code_info.peer_ip, code_info.way)
@@ -49,7 +49,6 @@ func (p *SshConn) serve() error {
 	go ssh.DiscardRequests(reqs)
 
 	for newChannel := range chans {
-
 		channel2, requests2, err2 := clientConn.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
 		if err2 != nil {
 			log.Printf("Could not accept client channel: %s", err.Error())
@@ -80,11 +79,11 @@ func (p *SshConn) serve() error {
 				if req == nil {
 					break r
 				}
-				log.Printf("Request: %s %s %s %s\n", dst, req.Type, req.WantReply, req.Payload)
+				log.Printf("Request: %s %s %s\n", req.Type, req.WantReply, req.Payload)
 
 				b, err := dst.SendRequest(req.Type, req.WantReply, req.Payload)
 				if err != nil {
-					log.Printf("%s", err)
+					log.Printf("some error:%s", err)
 				}
 
 				if req.WantReply {
@@ -97,15 +96,27 @@ func (p *SshConn) serve() error {
 				case "exit-status":
 					break r
 				case "exec":
-					// log.Printf("exec : %s", req.Payload)
-					// dst.Write(req.Payload)
-					// dst.Write([]byte("\n"))
-					// not supported (yet)
+					scp_session, err := clientConn.NewSession()
+					if err != nil {
+						break r
+					}
+					log.Println("Starting remote scp process: ", string(req.Payload))
+					if err := scp_session.Start(string(req.Payload) + "\n"); err != nil {
+						break r
+					}
+
+					<-exit
+					scp_session.Wait()
+					log.Println("remote scp process complete: ", string(req.Payload))
+					scp_session.Close()
+					break r
+				case "subsystem":
+					<-exit
+					break r
 				default:
 					log.Println(req.Type)
 				}
 			}
-
 			channel.Close()
 			channel2.Close()
 		}()
@@ -125,28 +136,36 @@ func (p *SshConn) serve() error {
 		// go io.Copy(channel, wrappedChannel2)
 
 		go func() {
+			defer log.Printf("copy finish 0")
+			defer func() { exit <- true }()
 			buf := make([]byte, 128)
 			for {
 				size, err := wrappedChannel.Read(buf)
 				if err != nil {
-					return
+					break
 				}
-				channel2.Write(buf[:size])
-				// log.Printf("get: %s", string(buf))
+				_, ew := channel2.Write(buf[:size])
+				if ew != nil {
+					break
+				}
 			}
 		}()
 
 		go func() {
+			defer log.Printf("copy finish 1")
+			defer func() { exit <- true }()
 			buf := make([]byte, 128)
 			for {
 				size, err := wrappedChannel2.Read(buf)
 				if err != nil {
-					return
+					break
 				}
-				channel.Write(buf[:size])
+				_, ew := channel.Write(buf[:size])
+				if ew != nil {
+					break
+				}
 				safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
 				p.cc.SendLogEvent(safeMessage, code_info.code, code_info.way)
-				// log.Printf("post: %s", string(buf))
 			}
 		}()
 

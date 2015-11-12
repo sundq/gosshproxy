@@ -88,9 +88,6 @@ func SshProxyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 
 	ListenAndServe(listen, config, cc, func(c ssh.ConnMetadata) (*ssh.Client, error) {
 		meta, _ := sessions[c.RemoteAddr()]
-
-		// fmt.Println(meta)
-
 		client := meta["client"].(*ssh.Client)
 		fmt.Printf("Connection accepted from: %s", c.RemoteAddr())
 

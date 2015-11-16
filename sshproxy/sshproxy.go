@@ -62,6 +62,7 @@ func (p *SshConn) serve() error {
 		}
 
 		// connect requests
+		req_type := "shell"
 		go func() {
 			log.Printf("Waiting for request")
 
@@ -90,7 +91,8 @@ func (p *SshConn) serve() error {
 					req.Reply(b, nil)
 				}
 
-				log.Println(req.Type)
+				log.Println("request type:" + req.Type)
+				req_type = req.Type
 
 				switch req.Type {
 				case "exit-status":
@@ -147,6 +149,10 @@ func (p *SshConn) serve() error {
 				if ew != nil {
 					break
 				}
+
+				if req_type == "subsystem" {
+					log.Printf("1: %x", buf[0])
+				}
 				// log.Printf("get msg: %s", string(buf))
 			}
 		}()
@@ -165,7 +171,10 @@ func (p *SshConn) serve() error {
 					break
 				}
 				safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
-				p.cc.SendLogEvent(safeMessage, code_info.code, code_info.way)
+				if req_type == "shell" {
+					log.Printf("post msg: %s", string(buf))
+					p.cc.SendLogEvent(safeMessage, code_info.code, code_info.way)
+				}
 				// log.Printf("post msg: %s", string(buf))
 			}
 		}()

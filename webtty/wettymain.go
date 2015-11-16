@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/codegangsta/cli"
 	"os"
-	"os/signal"
+	// "os/signal"
 	"sync"
-	"syscall"
+	// "syscall"
 )
 
 func WettyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
@@ -98,7 +98,7 @@ func WettyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 			exit(err, 3)
 		}
 
-		registerSignals(app)
+		// registerSignals(app)
 
 		err = app.Run()
 		if err != nil {
@@ -117,25 +117,25 @@ func exit(err error, code int) {
 	os.Exit(code)
 }
 
-func registerSignals(app *App) {
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(
-		sigChan,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-	)
+// func registerSignals(app *App) {
+// 	sigChan := make(chan os.Signal, 1)
+// 	signal.Notify(
+// 		sigChan,
+// 		syscall.SIGINT,
+// 		syscall.SIGTERM,
+// 	)
 
-	go func() {
-		for {
-			s := <-sigChan
-			switch s {
-			case syscall.SIGINT, syscall.SIGTERM:
-				if app.Exit() {
-					fmt.Println("Send ^C to force exit.")
-				} else {
-					os.Exit(5)
-				}
-			}
-		}
-	}()
-}
+// 	go func() {
+// 		for {
+// 			s := <-sigChan
+// 			switch s {
+// 			case syscall.SIGINT, syscall.SIGTERM:
+// 				if app.Exit() {
+// 					fmt.Println("Send ^C to force exit.")
+// 				} else {
+// 					os.Exit(5)
+// 				}
+// 			}
+// 		}
+// 	}()
+// }

@@ -77,7 +77,7 @@ func NewCenterCommunication(path string) (*CenterCommunication, error) {
 		}()
 		return cc, nil
 	} else {
-		log.Printf("Create cc failed:")
+		log.Printf("Create cc failed:", err)
 		return nil, err
 	}
 }

@@ -211,16 +211,16 @@ func (app *App) Run() error {
 			(&url.URL{Scheme: scheme, Host: endpoint, Path: path + "/"}).String(),
 		)
 	} else {
-		for _, address := range listAddresses() {
-			log.Printf(
-				"URL: %s",
-				(&url.URL{
-					Scheme: scheme,
-					Host:   net.JoinHostPort(address, app.options.Port),
-					Path:   path + "/",
-				}).String(),
-			)
-		}
+		//for _, address := range listAddresses() {
+		// log.Printf(
+		// 	"URL: %s",
+		// 	(&url.URL{
+		// 		Scheme: scheme,
+		// 		Host:   net.JoinHostPort(address, app.options.Port),
+		// 		Path:   path + "/",
+		// 	}).String(),
+		// )
+		//}
 	}
 
 	server, err := app.makeServer(endpoint, &siteHandler)

@@ -4,3 +4,4 @@ builds
 main
 app
 libapps
+test*

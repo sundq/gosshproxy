@@ -37,7 +37,8 @@ func get_user_name(user string) (string, string, int, string, error) {
 }
 
 func SshProxyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
-	listen := ":8022"
+	db_config, err := libs.GetConfig()
+	listen := fmt.Sprintf(":%d", db_config.SshPort)
 	key := "./id_rsa"
 	defer wg.Done()
 

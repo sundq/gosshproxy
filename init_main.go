@@ -1,6 +1,7 @@
 package main
 
 import (
+	"./libs"
 	. "./log"
 	"fmt"
 	"github.com/bitly/go-simplejson"
@@ -101,16 +102,17 @@ func SendMessage(msg string) {
 }
 func CreateConnection() (*websocket.Conn, error) {
 	url := "ws://diaobao.jiagouyun.local/api/ws/data/event"
+	config, _ := libs.GetConfig()
 	conn, err := websocket.Dial(url, "dataEvent", "http://localhost/")
 	if err == nil {
 		g_conn_websocket = conn
 		js := simplejson.New()
 		js.Set("type", "agent_online")
-		js.Set("version", "1.2.6")
-		js.Set("web_port", "8889")
-		js.Set("rdp_port", "9250")
-		js.Set("ssh_port", "9998")
-		js.Set("key", "1111")
+		js.Set("version", config.Version)
+		js.Set("web_port", config.WettyPort)
+		js.Set("rdp_port", config.WebRdpPort)
+		js.Set("ssh_port", config.SshPort)
+		js.Set("key", config.Key)
 		t, _ := js.Encode()
 		SendMessage(string(t))
 	}
@@ -121,13 +123,14 @@ func CreateConnection() (*websocket.Conn, error) {
 func HealthCheck(conn *websocket.Conn) {
 	send_heartbeat_chan := make(chan bool, 1)
 	defer close(send_heartbeat_chan)
+	config, _ := libs.GetConfig()
 	js := simplejson.New()
 	js.Set("type", "health_check")
-	js.Set("version", "1.2.6")
-	js.Set("web_port", "8889")
-	js.Set("rdp_port", "9250")
-	js.Set("ssh_port", "9998")
-	js.Set("key", "1111")
+	js.Set("version", config.Version)
+	js.Set("web_port", config.WettyPort)
+	js.Set("rdp_port", config.WebRdpPort)
+	js.Set("ssh_port", config.SshPort)
+	js.Set("key", config.Key)
 	t, err := js.Encode()
 	if err != nil {
 		Log.Info("json encode failed: %s", err)
@@ -214,7 +217,6 @@ func HealthCheck(conn *websocket.Conn) {
 }
 
 func InitMain() {
-	// defer Log.Close()
 	CreateUnixDomainServer()
 	conn, err := CreateConnection()
 	if err != nil {

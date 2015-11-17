@@ -90,6 +90,9 @@ func WettyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 			options.EnableTLSClientAuth = true
 		}
 
+		db_config, err := libs.GetConfig()
+		options.Port = fmt.Sprintf("%d", db_config.WettyPort)
+
 		if err := CheckConfig(&options); err != nil {
 			exit(err, 6)
 		}

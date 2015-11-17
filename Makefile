@@ -1,6 +1,6 @@
 OUTPUT_DIR = ./builds
 
-gosshproxy: app/resource.go main.go
+gosshproxy: app/resource.go main.go init_main.go
 	go build
 
 resource:  app/resource.go

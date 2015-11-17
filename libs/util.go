@@ -5,12 +5,62 @@ import (
 	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/parnurzeal/gorequest"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"log"
 	"net"
 )
 
+type Configure struct {
+	SshPort        int    `yaml:"SshPort"`
+	WettyPort      int    `yaml:"WettyPort"`
+	WebRdpPort     int    `yaml:"WebRdpPort"`
+	LogPath        string `yaml:"LogPath"`
+	LogLevel       string `yaml:"LogLevel"`
+	DiaobaoYunHost string `yaml:"DiaobaoYunHost"`
+	DiaobaoYunSsl  bool   `yaml:"DiaobaoYunSsl"`
+	Hostname       string `yaml:"Hostname"`
+	Key            string `yaml:"Key"`
+	Version        string `yaml:"Version"`
+}
+
+var config *Configure
+
+func GetConfig() (*Configure, error) {
+	contents, err := ioutil.ReadFile("./config.yaml")
+	if err != nil {
+		return nil, err
+	}
+
+	if config == nil {
+		config = new(Configure)
+		yaml.Unmarshal(contents, config)
+	}
+	return config, nil
+}
+
+func SetConfig(key string, hostname string) {
+	contents, _ := ioutil.ReadFile("./config.yaml")
+	config_default := Configure{}
+	yaml.Unmarshal(contents, &config_default)
+
+	if hostname != "" {
+		config_default.Hostname = hostname
+	}
+
+	if key != "" {
+		config_default.Key = key
+	}
+
+	c, _ := yaml.Marshal(&config_default)
+
+	ioutil.WriteFile("./config.yaml", c, 0644)
+
+}
+
 func GetCodeInfo(code string) (*simplejson.Json, error) {
-	url := fmt.Sprintf("http://diaobao.jiagouyun.local/api/get_tunnel_detail?code=%s&token=333d9987c1b560", code)
+	GetConfig()
+	url := fmt.Sprintf("http://%s/api/get_tunnel_detail?code=%s&token=333d9987c1b560", config.DiaobaoYunHost, code)
 	request := gorequest.New()
 	resp, body, errs := request.Get(url).End()
 	if len(errs) > 0 {
@@ -30,10 +80,6 @@ func GetCodeInfo(code string) (*simplejson.Json, error) {
 		}
 	}
 
-}
-
-func CreateUnixSock() (net.Conn, error) {
-	return net.Dial("unix", "/Users/sundq/workspace/pentagon/diaobaoyun.sock")
 }
 
 type CenterCommunication struct {

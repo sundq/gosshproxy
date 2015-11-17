@@ -68,10 +68,38 @@ func SshProxyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 				return nil, err
 			}
 			clientConfig := &ssh.ClientConfig{}
-
 			clientConfig.User = user
 			clientConfig.Auth = []ssh.AuthMethod{
+				// ssh.PublicKeys(signer),
 				ssh.Password(string(pass)),
+			}
+			Log.Info("connect to dest:", fmt.Sprintf("%s:%d", ip, port), err)
+			client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", ip, port), clientConfig)
+			sessions[c.RemoteAddr()]["client"] = client
+			sessions[c.RemoteAddr()]["code"] = &code_info{
+				code:    code,
+				way:     "terminal",
+				peer_ip: c.RemoteAddr().String(),
+			}
+			return nil, err
+		},
+		PublicKeyCallback: func(c ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			fmt.Printf("Login attempt: %s, user %s", c.RemoteAddr(), c.User())
+
+			sessions[c.RemoteAddr()] = map[string]interface{}{
+				"username": c.User(),
+				"password": string(key.Marshal()),
+			}
+			user, ip, port, code, err := get_user_name(c.User())
+			if err != nil {
+				return nil, err
+			}
+			clientConfig := &ssh.ClientConfig{}
+			clientConfig.User = user
+			signer, _ := ssh.ParsePrivateKey(privateBytes)
+			clientConfig.Auth = []ssh.AuthMethod{
+				ssh.PublicKeys(signer),
+				// ssh.Password(string(pass)),
 			}
 			Log.Info("connect to dest:", fmt.Sprintf("%s:%d", ip, port), err)
 			client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", ip, port), clientConfig)

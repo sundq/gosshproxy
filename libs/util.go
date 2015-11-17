@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 )
 
 type Configure struct {
@@ -22,6 +23,7 @@ type Configure struct {
 	Hostname       string `yaml:"Hostname"`
 	Key            string `yaml:"Key"`
 	Version        string `yaml:"Version"`
+	SshPrivateKey  string `yaml:"SshPrivateKey"`
 }
 
 var config *Configure
@@ -38,7 +40,7 @@ func GetConfig() (*Configure, error) {
 	return config, nil
 }
 
-func SetConfig(key string, hostname string) {
+func SetConfig(key string, hostname string, ssh_private_key string) {
 	contents, _ := ioutil.ReadFile("./config.yaml")
 	config_default := Configure{}
 	yaml.Unmarshal(contents, &config_default)
@@ -49,6 +51,12 @@ func SetConfig(key string, hostname string) {
 
 	if key != "" {
 		config_default.Key = key
+	}
+
+	if ssh_private_key != "" {
+		config_default.SshPrivateKey = ssh_private_key
+	} else {
+		config_default.SshPrivateKey = fmt.Sprintf("%s/.ssh/id_rsa", os.Getenv("HOME"))
 	}
 
 	c, _ := yaml.Marshal(&config_default)

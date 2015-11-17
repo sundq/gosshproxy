@@ -23,7 +23,7 @@ func main() {
 	cmd.Flags = flags
 
 	cmd.Action = func(c *cli.Context) {
-		libs.SetConfig(c.String("key"), c.String("hostname"))
+		libs.SetConfig(c.String("key"), c.String("hostname"), c.String("ssh_private_key"))
 		InitMain()
 		cc, err := libs.NewCenterCommunication("./diaobaoyun.sock")
 		if err != nil {

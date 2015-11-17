@@ -8,3 +8,4 @@ DiaobaoYunSsl: false
 Hostname: ""
 Key: "1111"
 Version: 1.2.6
+SshPrivateKey: /Users/sundq/.ssh/id_rsa

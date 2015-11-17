@@ -40,7 +40,7 @@ func get_user_name(user string) (string, string, int, string, error) {
 func SshProxyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 	db_config, err := libs.GetConfig()
 	listen := fmt.Sprintf(":%d", db_config.SshPort)
-	key := "./id_rsa"
+	key := db_config.SshPrivateKey
 	defer wg.Done()
 
 	privateBytes, err := ioutil.ReadFile(key)

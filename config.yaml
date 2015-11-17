@@ -3,7 +3,7 @@ WettyPort: 8889
 WebRdpPort: 9250
 LogPath: /tmp
 LogLevel: INFO
-DiaobaoYunHost: diaobaoyun.jiagouyun.local
+DiaobaoYunHost: diaobao.jiagouyun.local
 DiaobaoYunSsl: false
 Hostname: ""
 Key: "1111"

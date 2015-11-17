@@ -2,10 +2,11 @@ package sshproxy
 
 import (
 	"../libs"
+	. "../log"
 	"code.google.com/p/go.crypto/ssh"
 	"encoding/base64"
+	"encoding/binary"
 	"io"
-	"log"
 	"net"
 )
 
@@ -19,10 +20,18 @@ type SshConn struct {
 	closeFn    func(c ssh.ConnMetadata) error
 }
 
+func BytesToInt64(buf []byte) int64 {
+	return int64(binary.BigEndian.Uint64(buf))
+}
+
+func BytesToInt32(buf []byte) int {
+	return int(binary.BigEndian.Uint32(buf))
+}
+
 func (p *SshConn) serve() error {
 	serverConn, chans, reqs, err := ssh.NewServerConn(p, p.config)
 	if err != nil {
-		log.Println("failed to handshake")
+		Log.Info("failed to handshake:%s", err)
 		return (err)
 	}
 	exit := make(chan bool, 2)
@@ -34,14 +43,14 @@ func (p *SshConn) serve() error {
 
 	clientConn, err := p.callbackFn(serverConn)
 	if err != nil {
-		log.Printf("%s", err.Error())
+		Log.Info("%s", err.Error())
 		return (err)
 	}
 
 	defer clientConn.Close()
 
 	p.cc.SetDataCallback(code_info.code, code_info.way, func(data []byte) error {
-		log.Printf("Get message from unix domain:", string(data))
+		Log.Info("Get message from unix domain:", string(data))
 		clientConn.Close()
 		return nil
 	})
@@ -51,20 +60,21 @@ func (p *SshConn) serve() error {
 	for newChannel := range chans {
 		channel2, requests2, err2 := clientConn.OpenChannel(newChannel.ChannelType(), newChannel.ExtraData())
 		if err2 != nil {
-			log.Printf("Could not accept client channel: %s", err.Error())
+			Log.Info("Could not accept client channel: %s", err.Error())
 			return err
 		}
 
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
-			log.Printf("Could not accept server channel: %s", err.Error())
+			Log.Info("Could not accept server channel: %s", err.Error())
 			return err
 		}
 
 		// connect requests
 		req_type := "shell"
+		req_subsystem_type := ""
 		go func() {
-			log.Printf("Waiting for request")
+			Log.Info("Waiting for request")
 
 		r:
 			for {
@@ -80,18 +90,18 @@ func (p *SshConn) serve() error {
 				if req == nil {
 					break r
 				}
-				log.Printf("Request: %s %s %s\n", req.Type, req.WantReply, req.Payload)
+				Log.Info("Request: %s %s %s\n", req.Type, req.WantReply, req.Payload)
 
 				b, err := dst.SendRequest(req.Type, req.WantReply, req.Payload)
 				if err != nil {
-					log.Printf("some error:%s", err)
+					Log.Info("some error:%s", err)
 				}
 
 				if req.WantReply {
 					req.Reply(b, nil)
 				}
 
-				log.Println("request type:" + req.Type)
+				Log.Info("request type: %s", req.Type)
 				req_type = req.Type
 
 				switch req.Type {
@@ -108,14 +118,15 @@ func (p *SshConn) serve() error {
 
 					<-exit
 					scp_session.Wait()
-					log.Println("remote scp process complete: ", string(req.Payload))
+					Log.Info("remote scp process complete: ", string(req.Payload))
 					scp_session.Close()
 					break r
 				case "subsystem":
+					req_subsystem_type = string(req.Payload[4:len(req.Payload)])
 					<-exit
 					break r
 				default:
-					log.Println(req.Type)
+					Log.Info(req.Type)
 				}
 			}
 			channel.Close()
@@ -123,7 +134,7 @@ func (p *SshConn) serve() error {
 		}()
 
 		// connect channels
-		log.Printf("Connecting channels.")
+		Log.Info("Connecting channels.")
 
 		var wrappedChannel io.ReadCloser = channel
 		var wrappedChannel2 io.ReadCloser = channel2
@@ -137,9 +148,10 @@ func (p *SshConn) serve() error {
 		// go io.Copy(channel, wrappedChannel2)
 
 		go func() {
-			defer log.Printf("server read finish")
+			defer Log.Info("server read finish")
 			defer func() { exit <- true }()
-			buf := make([]byte, 128)
+			buf := make([]byte, 1024)
+			filename := ""
 			for {
 				size, err := wrappedChannel.Read(buf)
 				if err != nil {
@@ -149,18 +161,46 @@ func (p *SshConn) serve() error {
 				if ew != nil {
 					break
 				}
+				// Log.Info("request type: %s,  sub_type:%s %s %s", req_type, req_subsystem_type, (req_type == "subsystem"), (req_subsystem_type == "sftp"))
+				if (req_type == "subsystem") && (req_subsystem_type == "sftp") {
+					op := buf[4]
+					if op == 3 { //open file
+						filename_len := BytesToInt32(buf[9:13])
+						if filename_len < size {
+							filename = string(buf[13 : filename_len+13])
+						} else {
+							filename = string(buf[13:size])
+						}
+					}
 
-				if req_type == "subsystem" {
-					log.Printf("1: %x", buf[0])
+					if op == 4 { // close file
+						filename = ""
+					}
+
+					if op == 5 { //read file
+						if filename != "" {
+							Log.Info("download file: %s", filename)
+							p.cc.SendFileLogEvent(code_info.code, filename, "download")
+							filename = ""
+						}
+					}
+
+					if op == 6 { // write file
+						if filename != "" {
+							Log.Info("upload file: %s", filename)
+							p.cc.SendFileLogEvent(code_info.code, filename, "upload")
+							filename = ""
+						}
+					}
+					// Log.Info("get msg: length:%d op:%d request_id:%d", BytesToInt32(buf[:4]), buf[4], BytesToInt32(buf[5:9]), buf[:size])
 				}
-				// log.Printf("get msg: %s", string(buf))
 			}
 		}()
 
 		go func() {
-			defer log.Printf("client read finish")
+			defer Log.Info("client read finish")
 			defer func() { exit <- true }()
-			buf := make([]byte, 128)
+			buf := make([]byte, 1024)
 			for {
 				size, err := wrappedChannel2.Read(buf)
 				if err != nil {
@@ -172,10 +212,10 @@ func (p *SshConn) serve() error {
 				}
 				safeMessage := base64.StdEncoding.EncodeToString([]byte(buf[:size]))
 				if req_type == "shell" {
-					log.Printf("post msg: %s", string(buf))
+					// Log.Info("post msg: %s", string(buf))
 					p.cc.SendLogEvent(safeMessage, code_info.code, code_info.way)
 				}
-				// log.Printf("post msg: %s", string(buf))
+				// Log.Info("post msg:", buf[:size])
 			}
 		}()
 
@@ -198,7 +238,7 @@ func ListenAndServe(addr string, serverConfig *ssh.ServerConfig, cc *libs.Center
 ) error {
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		log.Printf("net.Listen failed: %v", err)
+		Log.Info("net.Listen failed: %v", err)
 		return err
 	}
 
@@ -207,7 +247,7 @@ func ListenAndServe(addr string, serverConfig *ssh.ServerConfig, cc *libs.Center
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Printf("listen.Accept failed: %v", err)
+			Log.Info("listen.Accept failed: %v", err)
 			return err
 		}
 
@@ -215,11 +255,11 @@ func ListenAndServe(addr string, serverConfig *ssh.ServerConfig, cc *libs.Center
 
 		go func() {
 			if err := sshconn.serve(); err != nil {
-				log.Printf("Error occured while serving %s\n", err)
+				Log.Info("Error occured while serving %s\n", err)
 				return
 			}
 
-			log.Println("Connection closed.")
+			Log.Info("Connection closed.")
 		}()
 	}
 

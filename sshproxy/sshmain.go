@@ -2,6 +2,7 @@ package sshproxy
 
 import (
 	"../libs"
+	. "../log"
 	"code.google.com/p/go.crypto/ssh"
 	"errors"
 	"fmt"
@@ -56,7 +57,7 @@ func SshProxyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 
 	config := &ssh.ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
-			fmt.Printf("Login attempt: %s, user %s password: %s", c.RemoteAddr(), c.User(), string(pass))
+			fmt.Printf("Login attempt: %s, user %s", c.RemoteAddr(), c.User())
 
 			sessions[c.RemoteAddr()] = map[string]interface{}{
 				"username": c.User(),
@@ -72,9 +73,8 @@ func SshProxyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 			clientConfig.Auth = []ssh.AuthMethod{
 				ssh.Password(string(pass)),
 			}
-
+			Log.Info("connect to dest:", fmt.Sprintf("%s:%d", ip, port), err)
 			client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", ip, port), clientConfig)
-			fmt.Println("connect to dest:", fmt.Sprintf("%s:%d", ip, port), err)
 			sessions[c.RemoteAddr()]["client"] = client
 			sessions[c.RemoteAddr()]["code"] = &code_info{
 				code:    code,
@@ -90,18 +90,18 @@ func SshProxyMain(wg *sync.WaitGroup, cc *libs.CenterCommunication) {
 	ListenAndServe(listen, config, cc, func(c ssh.ConnMetadata) (*ssh.Client, error) {
 		meta, _ := sessions[c.RemoteAddr()]
 		client := meta["client"].(*ssh.Client)
-		fmt.Printf("Connection accepted from: %s", c.RemoteAddr())
+		Log.Info("Connection accepted from: %s", c.RemoteAddr())
 
 		return client, err
 	}, func(c ssh.ConnMetadata) (*code_info, error) {
 		meta, _ := sessions[c.RemoteAddr()]
 		code_info := meta["code"].(*code_info)
-		fmt.Printf("code info: %s", code_info)
+		Log.Info("code info: %s", code_info)
 		return code_info, nil
 	}, func(c ssh.ConnMetadata, r io.ReadCloser) (io.ReadCloser, error) {
 		return NewTypeWriterReadCloser(r), nil
 	}, func(c ssh.ConnMetadata) error {
-		fmt.Println("Connection closed.")
+		Log.Info("Connection closed.")
 		return nil
 	})
 }

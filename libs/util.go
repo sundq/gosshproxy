@@ -26,16 +26,15 @@ type Configure struct {
 
 var config *Configure
 
-func GetConfig() (*Configure, error) {
-	contents, err := ioutil.ReadFile("./config.yaml")
-	if err != nil {
-		return nil, err
-	}
-
+func init() {
+	contents, _ := ioutil.ReadFile("./config.yaml")
 	if config == nil {
 		config = new(Configure)
 		yaml.Unmarshal(contents, config)
 	}
+}
+
+func GetConfig() (*Configure, error) {
 	return config, nil
 }
 
@@ -59,8 +58,14 @@ func SetConfig(key string, hostname string) {
 }
 
 func GetCodeInfo(code string) (*simplejson.Json, error) {
-	GetConfig()
-	url := fmt.Sprintf("http://%s/api/get_tunnel_detail?code=%s&token=333d9987c1b560", config.DiaobaoYunHost, code)
+	var scheme string
+	if config.DiaobaoYunSsl {
+		scheme = "https"
+	} else {
+		scheme = "http"
+	}
+
+	url := fmt.Sprintf("%s://%s/api/get_tunnel_detail?code=%s&token=333d9987c1b560", scheme, config.DiaobaoYunHost, code)
 	request := gorequest.New()
 	resp, body, errs := request.Get(url).End()
 	if len(errs) > 0 {
@@ -160,6 +165,26 @@ func (cc *CenterCommunication) SendLogEvent(data string, code string, way string
 	js.Set("code", code)
 	js.Set("way", way)
 	js.Set("data", data)
+
+	t, _ := js.Encode()
+	return cc.unixDomainConnection.Write(t)
+	// fmt.Fprintf(cc.unixDomainConnection, string(t))
+}
+
+func (cc *CenterCommunication) SendFileLogEvent(code string, filename string, op string) (n int, err error) {
+	//JSON.stringify(type: 'log', code: _code, way: 'wetty', data: data)
+	// _file_info =
+	// op: _file_op
+	// filename: _filename
+	sub_data := simplejson.New()
+	sub_data.Set("op", op)
+	sub_data.Set("filename", filename)
+
+	js := simplejson.New()
+	js.Set("type", "file_log")
+	js.Set("code", code)
+	js.Set("way", "terminal")
+	js.Set("data", sub_data)
 
 	t, _ := js.Encode()
 	return cc.unixDomainConnection.Write(t)

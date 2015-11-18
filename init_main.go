@@ -62,12 +62,14 @@ func ScanPort(cidr string, port int, cb func(ip string, port int, state string))
 }
 
 func handle_uninx_connection(conn net.Conn) {
-	buff := make([]byte, 512)
+	buff := make([]byte, 1024)
 	for {
 		size, err := conn.Read(buff)
 		if err != nil {
 			Log.Error("read data from unix domain failed: %s", err)
 			break
+		} else {
+			Log.Info("get unix mesg: %s", buff[:size])
 		}
 		// g_conn_websocket.Write(buff[:size])
 		SendMessage(string(buff[:size]))
@@ -84,12 +86,16 @@ func CreateUnixDomainServer() error {
 		Log.Info("create unix domain ok")
 	}
 	go func() {
-		conn, err := ln.Accept()
-		if err != nil {
-			Log.Error("accept unix conn failed: %s", err)
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				Log.Error("accept unix conn failed: %s", err)
+			} else {
+				Log.Info("unix connn accept.")
+			}
+			g_conn_unix = append(g_conn_unix, conn)
+			go handle_uninx_connection(conn)
 		}
-		g_conn_unix = append(g_conn_unix, conn)
-		go handle_uninx_connection(conn)
 	}()
 
 	return nil
@@ -98,7 +104,9 @@ func CreateUnixDomainServer() error {
 
 func SendMessage(msg string) {
 	contents := fmt.Sprintf("%010d%s", len(msg), string(msg))
-	g_conn_websocket.Write([]byte(contents))
+	if g_conn_websocket != nil {
+		g_conn_websocket.Write([]byte(contents))
+	}
 }
 func CreateConnection() (*websocket.Conn, error) {
 	url := "ws://diaobao.jiagouyun.local/api/ws/data/event"
@@ -161,6 +169,7 @@ func HealthCheck(conn *websocket.Conn) {
 		if err != nil {
 			Log.Info("read data failed: %s", err)
 			time.Sleep(time.Second * 1)
+			send_heartbeat_chan <- true
 			continue
 		}
 		Log.Info("get ws msg: %s", buff[:size])

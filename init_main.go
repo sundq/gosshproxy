@@ -40,7 +40,7 @@ func hosts(cidr string) ([]string, error) {
 		ips = append(ips, ip.String())
 	}
 	// remove network address and broadcast address
-	return ips[1 : len(ips)-1], nil
+	return ips[:len(ips)-1], nil
 }
 
 func ScanPort(cidr string, port int, cb func(ip string, port int, state string)) {

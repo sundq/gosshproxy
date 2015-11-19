@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"strings"
 )
 
 type SshConn struct {
@@ -73,6 +74,8 @@ func (p *SshConn) serve() error {
 		// connect requests
 		req_type := "shell"
 		req_subsystem_type := ""
+		_file_op := ""
+		_filename := ""
 		go func() {
 			Log.Info("Waiting for request")
 
@@ -103,6 +106,7 @@ func (p *SshConn) serve() error {
 
 				Log.Info("request type: %s", req.Type)
 				req_type = req.Type
+				req_subsystem_type = string(req.Payload[4:len(req.Payload)])
 
 				switch req.Type {
 				case "exit-status":
@@ -116,13 +120,13 @@ func (p *SshConn) serve() error {
 						break r
 					}
 
+					Log.Info("req_subsystem_type:%s", req_subsystem_type)
 					<-exit
 					scp_session.Wait()
-					Log.Info("remote scp process complete: ", string(req.Payload))
+					Log.Info("remote scp process complete: %s %s %s", string(req.Payload), req_subsystem_type, req_type)
 					scp_session.Close()
 					break r
 				case "subsystem":
-					req_subsystem_type = string(req.Payload[4:len(req.Payload)])
 					<-exit
 					break r
 				default:
@@ -152,6 +156,7 @@ func (p *SshConn) serve() error {
 			defer func() { exit <- true }()
 			buf := make([]byte, 1024)
 			filename := ""
+			scp_data := true
 			for {
 				size, err := wrappedChannel.Read(buf)
 				if err != nil {
@@ -161,7 +166,6 @@ func (p *SshConn) serve() error {
 				if ew != nil {
 					break
 				}
-				// Log.Info("request type: %s,  sub_type:%s %s %s", req_type, req_subsystem_type, (req_type == "subsystem"), (req_subsystem_type == "sftp"))
 				if (req_type == "subsystem") && (req_subsystem_type == "sftp") {
 					op := buf[4]
 					if op == 3 { //open file
@@ -194,6 +198,23 @@ func (p *SshConn) serve() error {
 					}
 					// Log.Info("get msg: length:%d op:%d request_id:%d", BytesToInt32(buf[:4]), buf[4], BytesToInt32(buf[5:9]), buf[:size])
 				}
+				if req_type == "exec" && scp_data && req_subsystem_type != "" {
+					_tmp_command := strings.Split(req_subsystem_type, " ")
+					if _tmp_command[1] == "-t" {
+						_file_op = "upload"
+						_filename = ""
+					} else {
+						_file_op = "download"
+						_filename = _tmp_command[2]
+					}
+					if _file_op == "upload" {
+						_filename = strings.Split(string(buf[:size]), " ")[2]
+					}
+					scp_data = false
+					Log.Info("%s %s %s", string(buf[:size]), _filename, _file_op)
+					p.cc.SendFileLogEvent(code_info.code, _filename, _file_op)
+				}
+
 			}
 		}()
 

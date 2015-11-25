@@ -109,8 +109,14 @@ func SendMessage(msg string) {
 	}
 }
 func CreateConnection() (*websocket.Conn, error) {
-	url := "ws://diaobao.jiagouyun.local/api/ws/data/event"
 	config, _ := libs.GetConfig()
+	url := ""
+	if config.DiaobaoYunSsl {
+		url = fmt.Sprintf("wss://%s/api/ws/data/event", config.DiaobaoYunHost)
+	} else {
+		url = fmt.Sprintf("ws://%s/api/ws/data/event", config.DiaobaoYunHost)
+	}
+
 	conn, err := websocket.Dial(url, "dataEvent", "http://localhost/")
 	if err == nil {
 		g_conn_websocket = conn
@@ -150,7 +156,7 @@ func HealthCheck(conn *websocket.Conn) {
 			SendMessage(string(t))
 			Log.Info("send heartbeat...")
 			heartbeat_timer = time.AfterFunc(time.Second*HeartBeatRespTimeout, func() {
-				Log.Warn("heart beat timer expired")
+				Log.Warn("heartbeat timer expired")
 				_, err := CreateConnection()
 				if err != nil {
 					Log.Error("reconnect failed:", err)
@@ -165,11 +171,12 @@ func HealthCheck(conn *websocket.Conn) {
 
 	buff := make([]byte, 512)
 	for {
+		Log.Info("start read data from ws")
 		size, err := g_conn_websocket.Read(buff)
 		if err != nil {
 			Log.Info("read data failed: %s", err)
 			time.Sleep(time.Second * 1)
-			send_heartbeat_chan <- true
+			// send_heartbeat_chan <- true
 			continue
 		}
 		Log.Info("get ws msg: %s", buff[:size])

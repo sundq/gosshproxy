@@ -227,6 +227,10 @@ func HealthCheck(conn *websocket.Conn) {
 				SendMessage(string(result))
 				conn.Close()
 			}
+		} else {
+			for _, conn := range g_conn_unix {
+				conn.Write(buff[:size])
+			}
 		}
 
 	}

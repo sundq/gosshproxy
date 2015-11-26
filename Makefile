@@ -1,7 +1,7 @@
 OUTPUT_DIR = ./builds
 
-dbsshproxy: main.go readers.go sshproxy.go 
-	go build -o dbsshproxy
+sshproxy4diaobao: main.go readers.go sshproxy.go 
+	go build -o sshproxy4diaobao
 
 tools:
 	go get github.com/tools/godep

@@ -7,9 +7,9 @@ import (
 	"github.com/parnurzeal/gorequest"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
+	"time"
 )
 
 type Configure struct {
@@ -101,21 +101,27 @@ type CenterCommunication struct {
 }
 
 func NewCenterCommunication(path string) (*CenterCommunication, error) {
-	conn, err := net.Dial("unix", path)
-	if err == nil {
+	for {
+		conn, err := net.Dial("unix", path)
+		if err != nil {
+			fmt.Printf("create connect to diaobaoyun faile: %s", err)
+			// Log.Info("create connect to diaobaoyun faile: %s", err)
+			time.Sleep(time.Second * 1)
+			continue
+		}
 		cc := &CenterCommunication{unixDomainConnection: conn, dataCallback: make(map[string]func([]byte) error)}
 		go func() {
 			buff := make([]byte, 128)
 			for {
 				size, err := cc.unixDomainConnection.Read(buff)
-				log.Printf("get message from unix sock:", string(buff))
+				// Log.Info("get message from unix sock:", string(buff))
 				if err != nil {
 					return
 				}
 				js, err := simplejson.NewJson(buff[:size])
 				if err == nil {
 					code, err := js.Get("code").String()
-					log.Printf("disconnect code:", code, cc.dataCallback)
+					// Log.Info("disconnect code:", code, cc.dataCallback)
 					if err == nil {
 						cb, ok := cc.dataCallback[code+"wetty"]
 						if ok {
@@ -125,7 +131,7 @@ func NewCenterCommunication(path string) (*CenterCommunication, error) {
 							if ok {
 								cb(buff)
 							} else {
-								log.Printf("callback not found")
+								// Log.Info("callback not found")
 							}
 						}
 					}
@@ -135,14 +141,10 @@ func NewCenterCommunication(path string) (*CenterCommunication, error) {
 			}
 		}()
 		return cc, nil
-	} else {
-		log.Printf("Create cc failed:", err)
-		return nil, err
 	}
 }
 
 func (cc *CenterCommunication) SendConnectEvent(code string, peer_ip string, way string) (n int, err error) {
-	// JSON.stringify(type: "open_connect", code: _code, way: "wetty", peer_ip: _remote_ip)
 	js := simplejson.New()
 	js.Set("type", "open_connect")
 	js.Set("code", code)
@@ -154,7 +156,6 @@ func (cc *CenterCommunication) SendConnectEvent(code string, peer_ip string, way
 }
 
 func (cc *CenterCommunication) SendDisconnectEvent(code string, peer_ip string, way string) (n int, err error) {
-	// JSON.stringify(type: "open_connect", code: _code, way: "wetty", peer_ip: _remote_ip)
 	js := simplejson.New()
 	js.Set("type", "close_connect")
 	js.Set("code", code)
@@ -167,7 +168,6 @@ func (cc *CenterCommunication) SendDisconnectEvent(code string, peer_ip string, 
 }
 
 func (cc *CenterCommunication) SendLogEvent(data string, code string, way string) (n int, err error) {
-	//JSON.stringify(type: 'log', code: _code, way: 'wetty', data: data)
 	js := simplejson.New()
 	js.Set("type", "log")
 	js.Set("code", code)
@@ -176,14 +176,9 @@ func (cc *CenterCommunication) SendLogEvent(data string, code string, way string
 
 	t, _ := js.Encode()
 	return cc.unixDomainConnection.Write(t)
-	// fmt.Fprintf(cc.unixDomainConnection, string(t))
 }
 
 func (cc *CenterCommunication) SendFileLogEvent(code string, filename string, op string) (n int, err error) {
-	//JSON.stringify(type: 'log', code: _code, way: 'wetty', data: data)
-	// _file_info =
-	// op: _file_op
-	// filename: _filename
 	sub_data := simplejson.New()
 	sub_data.Set("op", op)
 	sub_data.Set("filename", filename)
@@ -196,11 +191,9 @@ func (cc *CenterCommunication) SendFileLogEvent(code string, filename string, op
 
 	t, _ := js.Encode()
 	return cc.unixDomainConnection.Write(t)
-	// fmt.Fprintf(cc.unixDomainConnection, string(t))
 }
 
 func (cc *CenterCommunication) SetDataCallback(code string, way string, callbackFn func([]byte) error) error {
-	//JSON.stringify(type: 'log', code: _code, way: 'wetty', data: data)
 	cc.dataCallback[code+way] = callbackFn
 	return nil
 }

@@ -74,7 +74,6 @@ func main() {
 			clientConfig := &ssh.ClientConfig{}
 			clientConfig.User = user
 			clientConfig.Auth = []ssh.AuthMethod{
-				// ssh.PublicKeys(signer),
 				ssh.Password(string(pass)),
 			}
 			Log.Info("connect to dest:", fmt.Sprintf("%s:%d", ip, port), err)
@@ -103,7 +102,6 @@ func main() {
 			signer, _ := ssh.ParsePrivateKey(privateBytes)
 			clientConfig.Auth = []ssh.AuthMethod{
 				ssh.PublicKeys(signer),
-				// ssh.Password(string(pass)),
 			}
 			Log.Info("connect to dest:", fmt.Sprintf("%s:%d", ip, port), err)
 			client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", ip, port), clientConfig)

@@ -8,8 +8,8 @@ tools:
 	go get github.com/mitchellh/gox
 	go get github.com/tcnksm/ghr
 
-cross_compile:
-	GOARM=5 gox -os="linux" -arch="amd64" -output "${OUTPUT_DIR}/pkg/{{.OS}}_{{.Arch}}/{{.Dir}}"
+cross:
+	GOARM=5 gox -os="linux" -arch="amd64" -output "./gosshproxy";mv gosshproxy sshproxy4diaobao
 
 shasums:
 	cd ${OUTPUT_DIR}/dist; shasum * > ./SHASUMS

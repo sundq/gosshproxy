@@ -5,12 +5,13 @@ import (
 	. "./log"
 	"code.google.com/p/go.crypto/ssh"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
+	"strconv"
 	"strings"
-	// "sync"
 )
 
 type code_info struct {
@@ -18,6 +19,14 @@ type code_info struct {
 	peer_ip string
 	way     string
 }
+
+var (
+	addr            *string = flag.String("addr", "0.0.0.0:9998", "listen address")
+	loglevel        *string = flag.String("loglevel", "info", "log level")
+	center_address  *string = flag.String("center_address", "/Users/sundq/workspace/pentagon/diaobaoyun.sock", "notify center address")
+	diaobaoyun_host *string = flag.String("diaobaoyun_host", "www.diaobaoyun.com", "hostname of diaobao.")
+	diaobaoyun_ssl  *string = flag.String("diaobaoyun_ssl", "https", "is https")
+)
 
 func get_user_name(user string) (string, string, int, string, error) {
 	tmp_user := strings.Split(user, "_")
@@ -38,10 +47,24 @@ func get_user_name(user string) (string, string, int, string, error) {
 }
 
 func main() {
-	db_config, err := libs.GetConfig()
-	listen := fmt.Sprintf(":%d", db_config.SshPort)
-	key := db_config.SshPrivateKey
-	cc, err := libs.NewCenterCommunication("/Users/sundq/workspace/pentagon/diaobaoyun.sock")
+	flag.Parse()
+	db_config, err := libs.GetConfig("./config-ssh.yaml")
+	if err != nil {
+		port, _ := strconv.Atoi(strings.Split(*addr, ":")[1])
+		n_config := libs.Configure{
+			Port:           port,
+			Level:          *loglevel,
+			CenterAddress:  *center_address,
+			DiaobaoYunHost: *diaobaoyun_host,
+			DiaobaoYunSsl:  *diaobaoyun_ssl == "https",
+		}
+		db_config = &n_config
+		libs.SetConfig("./config-ssh.yaml", &n_config)
+	}
+	LogInit()
+	listen := fmt.Sprintf(":%d", db_config.Port)
+	key := "./id_rsa"
+	cc, err := libs.NewCenterCommunication(db_config.CenterAddress)
 	if err != nil {
 		Log.Error("Create uinx domain sock failed")
 		return
@@ -116,7 +139,7 @@ func main() {
 	}
 
 	config.AddHostKey(private)
-
+	fmt.Printf("server listen %s\n", listen)
 	ListenAndServe(listen, config, cc, func(c ssh.ConnMetadata) (*ssh.Client, error) {
 		meta, _ := sessions[c.RemoteAddr()]
 		client := meta["client"].(*ssh.Client)

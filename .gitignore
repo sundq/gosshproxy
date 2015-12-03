@@ -6,3 +6,5 @@ main
 app
 libapps
 test*
+*.yaml
+ssh_proxy*

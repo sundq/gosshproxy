@@ -8,61 +8,42 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net"
-	"os"
 	"time"
 )
 
 type Configure struct {
-	SshPort        int    `yaml:"SshPort"`
-	WettyPort      int    `yaml:"WettyPort"`
-	WebRdpPort     int    `yaml:"WebRdpPort"`
-	LogPath        string `yaml:"LogPath"`
-	LogLevel       string `yaml:"LogLevel"`
-	DiaobaoYunHost string `yaml:"DiaobaoYunHost"`
-	DiaobaoYunSsl  bool   `yaml:"DiaobaoYunSsl"`
-	Hostname       string `yaml:"Hostname"`
-	Key            string `yaml:"Key"`
-	Version        string `yaml:"Version"`
-	SshPrivateKey  string `yaml:"SshPrivateKey"`
+	Port           int    `yaml:"port"`
+	Level          string `yaml:"level"`
+	DiaobaoYunHost string `yaml:"diaobaoyun_host"`
+	DiaobaoYunSsl  bool   `yaml:"diaobao_ssl"`
+	CenterAddress  string `yaml:"center_address"`
 }
 
 var config *Configure
 
-func init() {
-	contents, _ := ioutil.ReadFile("./config.yaml")
-	if config == nil {
+// func init() {
+// 	contents, _ := ioutil.ReadFile("./config.yaml")
+// 	if config == nil {
+// 		config = new(Configure)
+// 		yaml.Unmarshal(contents, config)
+// 	}
+// }
+
+func GetConfig(config_path string) (*Configure, error) {
+	contents, err := ioutil.ReadFile(config_path)
+	if err != nil {
+		return nil, err
+	} else {
 		config = new(Configure)
 		yaml.Unmarshal(contents, config)
+		return config, nil
 	}
 }
 
-func GetConfig() (*Configure, error) {
-	return config, nil
-}
-
-func SetConfig(key string, hostname string, ssh_private_key string) {
-	contents, _ := ioutil.ReadFile("./config.yaml")
-	config_default := Configure{}
-	yaml.Unmarshal(contents, &config_default)
-
-	if hostname != "" {
-		config_default.Hostname = hostname
-	}
-
-	if key != "" {
-		config_default.Key = key
-	}
-
-	if ssh_private_key != "" {
-		config_default.SshPrivateKey = ssh_private_key
-	} else {
-		config_default.SshPrivateKey = fmt.Sprintf("%s/.ssh/id_rsa", os.Getenv("HOME"))
-	}
-
-	c, _ := yaml.Marshal(&config_default)
-
-	ioutil.WriteFile("./config.yaml", c, 0644)
-
+func SetConfig(config_path string, n_config *Configure) {
+	c, _ := yaml.Marshal(&n_config)
+	config = n_config
+	ioutil.WriteFile(config_path, c, 0644)
 }
 
 func GetCodeInfo(code string) (*simplejson.Json, error) {

@@ -7,8 +7,8 @@ import (
 
 var Log l4g.Logger
 
-func init() {
-	config, _ := libs.GetConfig()
+func LogInit() {
+	config, _ := libs.GetConfig("./config-ssh.yaml")
 	level := make(map[string]l4g.Level)
 
 	level["FINEST"] = l4g.FINEST
@@ -22,12 +22,12 @@ func init() {
 
 	if Log == nil {
 		Log = make(l4g.Logger)
-		flw := l4g.NewFileLogWriter(config.LogPath+"/diaobaoyun.log", true)
+		flw := l4g.NewFileLogWriter("./ssh_proxy.log", true)
 		flw.SetFormat("[%D %T] [%L] (%S) %M")
 		flw.SetRotate(true)
 		flw.SetRotateSize(1024 * 1024)
 		flw.SetRotateLines(1024 * 1024)
 		flw.SetRotateDaily(true)
-		Log.AddFilter("file", level[config.LogLevel], flw)
+		Log.AddFilter("file", level[config.Level], flw)
 	}
 }

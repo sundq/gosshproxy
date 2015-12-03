@@ -93,7 +93,7 @@ func (p *SshConn) serve() error {
 				if req == nil {
 					break r
 				}
-				Log.Info("Request: %s %s %s\n", req.Type, req.WantReply, req.Payload)
+				Log.Info("Request: %s %s %s\n", req.Type, req.WantReply, len(req.Payload))
 
 				b, err := dst.SendRequest(req.Type, req.WantReply, req.Payload)
 				if err != nil {
@@ -106,8 +106,9 @@ func (p *SshConn) serve() error {
 
 				Log.Info("request type: %s", req.Type)
 				req_type = req.Type
-				req_subsystem_type = string(req.Payload[4:len(req.Payload)])
-
+				if len(req.Payload) >= 4 {
+					req_subsystem_type = string(req.Payload[4:len(req.Payload)])
+				}
 				switch req.Type {
 				case "exit-status":
 					break r

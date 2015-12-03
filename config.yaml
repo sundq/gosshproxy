@@ -1,0 +1,11 @@
+SshPort: 9998
+WettyPort: 8889
+WebRdpPort: 9250
+LogPath: /tmp
+LogLevel: INFO
+DiaobaoYunHost: diaobao.jiagouyun.local
+DiaobaoYunSsl: false
+Hostname: ""
+Key: "1111"
+Version: 1.2.6
+SshPrivateKey: /Users/sundq/.ssh/id_rsa

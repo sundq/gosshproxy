@@ -1,0 +1,5 @@
+port: 9998
+level: INFO
+diaobaoyun_host: diaobao.jiagouyun.local
+diaobao_ssl: false
+center_address: /Users/sundq/workspace/pentagon/diaobaoyun.sock
